@@ -13,7 +13,6 @@ It now runs a demonstration with built-in dummy data, making it
 "ready to run" without any external files. Just execute the script.
 The original command-line interface is preserved in the `_cli()` function.
 """
-from __future__ import annotations
 import gzip, json, math, random, sys
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -99,10 +98,87 @@ class EmpathicSpace:
         # Normalize and store augmented vectors for quick similarity queries
         self.store = {w: self.vector(w) / np.linalg.norm(self.vector(w)) for w in self.words}
 
+        # Initialize parameters for the phrase composition tensor product.
+        # This implements the logic required to repair the "monotonicity mismatch".
+        self.alpha_compose = 0.5
+        self.beta_compose = 0.5
+        mean_vec_norm = np.mean([np.linalg.norm(v) for v in self.E.values()])
+        mean_vec_norm = mean_vec_norm if mean_vec_norm > 0 else 1.0 # Avoid division by zero
+        self.gamma_tensor = self.lambda_star / (2 * mean_vec_norm)
+
     # ─────────── vectors ────────────────────────────────────────────────
     def vector(self, w: str) -> np.ndarray:
         # Original embedding + affect dimension (scaled by alpha)
         return np.concatenate([self.E[w], [self.alpha * self.val[self.w2i[w]]]])
+
+    def phrase_vector(self, text: str, iter: int = 0, tol: float = 1e-6) -> np.ndarray:
+        """
+        Computes a vector for a multi-word phrase using a compositional tensor product.
+
+        This method implements the logic described in the introductory text to
+        address the "categorical monotonicity mismatch". It combines token vectors
+        using a custom tensor product `⊗` that preserves affect.
+
+        Args:
+            text (str): The input phrase (e.g., "not at all happy").
+            iter (int): If > 0, repeatedly applies the self-composition functor
+                        F(x) = x ⊗ x for `iter` steps or until convergence,
+                        to find the fixed point for repeating phrases.
+            tol (float): The tolerance for the convergence check when iter > 0.
+
+        Returns:
+            np.ndarray: The final empathic vector for the phrase.
+        """
+        # 1. Tokenize and filter words present in the vocabulary
+        tokens = [w for w in text.split() if w in self.w2i]
+        if not tokens:
+            return np.zeros(self.d + 1, dtype=np.float32)
+
+        # 2. Map each token to its initial (vector, affect) pair.
+        # The initial affect `a` is `alpha * valence`, as in the single-word `vector` method.
+        initial_pairs = []
+        for w in tokens:
+            idx = self.w2i[w]
+            v = self.E[w]
+            a = self.alpha * self.val[idx]
+            initial_pairs.append((v, a))
+
+        # 3. Reduce the list of pairs using a left-fold with the custom tensor product.
+        # (v₁,a₁) ⊗ (v₂,a₂) = (μ(v₁,v₂), α·a₁ + β·a₂ + γ·⟨v₁,v₂⟩)
+        # where μ(v₁,v₂) = v₁ + v₂.
+        v_acc, a_acc = initial_pairs[0]
+        if len(initial_pairs) > 1:
+            for v_i, a_i in initial_pairs[1:]:
+                v_next = v_acc + v_i
+                a_next = (self.alpha_compose * a_acc +
+                          self.beta_compose * a_i +
+                          self.gamma_tensor * np.dot(v_acc, v_i))
+                v_acc, a_acc = v_next, a_next
+
+        # 4. If iter > 0, apply the endofunctor F(x) = x ⊗ x repeatedly.
+        # This finds the fixed point for phrases like "very very happy",
+        # modeled as F(F(happy_vec)).
+        if iter > 0:
+            # The prompt suggests a `while tol` loop; `iter` serves as a max_iter guard.
+            for _ in range(iter):
+                v_prev, a_prev = v_acc, a_acc
+
+                # Apply F(x) = x ⊗ x, where x = (v_prev, a_prev)
+                # v_new = v_prev + v_prev
+                # a_new = α·a_prev + β·a_prev + γ·⟨v_prev, v_prev⟩
+                v_acc = 2 * v_prev
+                a_acc = (self.alpha_compose + self.beta_compose) * a_prev + \
+                        self.gamma_tensor * np.dot(v_prev, v_prev)
+
+                # Check for convergence against the previous state
+                v_change = np.linalg.norm(v_acc - v_prev)
+                a_change = abs(a_acc - a_prev)
+                if v_change < tol and a_change < tol:
+                    break
+        
+        # 5. Combine the final vector and affect score into a single array.
+        return np.concatenate([v_acc, [a_acc]])
+
     def opposite(self, w: str) -> np.ndarray:
         # Same embedding, but affect dimension sign-flipped
         return np.concatenate([self.E[w], [-self.alpha * self.val[self.w2i[w]]]])
@@ -440,6 +516,12 @@ class EmpathicSpace:
         n = len(obj.words)
         obj.L_plus = obj.L_minus = sp.eye(n, dtype=np.float64)
         obj.store = {w: obj.vector(w) / np.linalg.norm(obj.vector(w)) for w in obj.words}
+        # Re-initialize composition parameters after loading
+        mean_vec_norm = np.mean([np.linalg.norm(v) for v in obj.E.values()])
+        mean_vec_norm = mean_vec_norm if mean_vec_norm > 0 else 1.0
+        obj.alpha_compose = 0.5
+        obj.beta_compose = 0.5
+        obj.gamma_tensor = obj.lambda_star / (2 * mean_vec_norm)
         return obj
 
     def _scale(self):
@@ -552,7 +634,7 @@ def main():
         supervised_space = EmpathicSpace(E, gold=dummy_vad_data)
         print("✅  Supervised model trained successfully.")
 
-        probe_word = "happy"
+        probe_word = "good"
         if probe_word in supervised_space.E:
             print(f"\nNearest neighbours of '{probe_word}' in affect-augmented space:")
             for w, s in supervised_space.nearest(supervised_space.vector(probe_word), n=5):
@@ -607,6 +689,23 @@ def main():
 
             R, theta = unsupervised_space.certify(probe_word)
             print(f"\nCertificate for '{probe_word}':  R={R:6.3e},  θ={theta:4.1f}°")
+            
+            # --- 4. Phrase Vector Demo ---
+            print("\n--- Demonstrating new `phrase_vector` method ---")
+            phrase1 = "bad happy"
+            vec1 = unsupervised_space.phrase_vector(phrase1)
+            print(f"\nVector for '{phrase1}': affect score = {vec1[-1]:.3f}")
+            print(f"  -> Nearest neighbors for '{phrase1}':")
+            for w, s in unsupervised_space.nearest(vec1, n=3):
+                print(f"     {w:<15} {s:5.3f}")
+
+            phrase2 = "happy"
+            vec2_iter = unsupervised_space.phrase_vector(phrase2, iter=5)
+            print(f"\nVector for 'very {phrase2}' (iter=5): affect score = {vec2_iter[-1]:.3f}")
+            print(f"  -> Nearest neighbors for 'very {phrase2}':")
+            for w, s in unsupervised_space.nearest(vec2_iter, n=3):
+                print(f"     {w:<15} {s:5.3f}")
+
 
     except Exception as e:
         print(f"❌  Unsupervised mode failed: {e}")
