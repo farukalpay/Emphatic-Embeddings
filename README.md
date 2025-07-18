@@ -64,59 +64,72 @@ You can install them by running: pip install numpy scipy
 
 
 --- Running SUPERVISED Mode Demo (using dummy VAD data) ---
-✅ Supervised model trained successfully.
+✅  Supervised model trained successfully.
 
-Nearest neighbours of 'happy' in affect-augmented space:
-  happy           1.000
-  joyful          0.998
-  excellent       0.998
-  good            0.995
-  neutral         0.935
+Nearest neighbours of 'good' in affect-augmented space:
+  good             1.000
+  excellent        0.999
+  joyful           0.997
+  happy            0.995
+  neutral          0.963
 
-Opposite-affect neighbours of 'happy':
-  miserable       -0.474
-  unhappy         -0.613
-  terrible        -0.643
-  sad             -0.709
-  bad             -0.727
+Opposite-affect neighbours of 'good':
+  miserable        -0.402
+  unhappy          -0.553
+  terrible         -0.582
+  sad              -0.660
+  bad              -0.674
 
 
 --- Running UNSUPERVISED Mode Demo (no VAD data) ---
-✅ Unsupervised model trained successfully.
+✅  Unsupervised model trained successfully.
 
 Words with most negative discovered affect:
-  unhappy        -1.917
-  bad            -0.779
-  miserable      -0.760
-  sad            -0.760
-  terrible       -0.704
+  unhappy         -1.917
+  bad             -0.779
+  miserable       -0.760
+  sad             -0.760
+  terrible        -0.704
 
 Words with most positive discovered affect:
-  happy           1.618
-  joyful          1.120
-  excellent       1.046
-  good            1.043
-  data            0.080
+  happy            1.618
+  joyful           1.120
+  excellent        1.046
+  good             1.043
+  data             0.080
 
 Nearest neighbours of 'good' in affect-augmented space:
-  good            1.000
-  excellent       0.996
-  joyful          0.982
-  happy           0.972
-  data            0.466
+  good             1.000
+  excellent        0.996
+  joyful           0.982
+  happy            0.972
+  data             0.466
 
 Opposite-affect neighbours of 'good':
-  unhappy         0.600
-  bad             0.442
-  neutral         0.416
-  data            0.355
-  terrible        0.344
+  unhappy          0.600
+  bad              0.442
+  neutral          0.416
+  data             0.355
+  terrible         0.344
 
-Certificate for 'good': R=7.791e+00, θ=90.0°
+Certificate for 'good':  R=7.791e+00,  θ=90.0°
+
+--- Demonstrating new `phrase_vector` method ---
+
+Vector for 'bad happy': affect score = 0.184
+  -> Nearest neighbors for 'bad happy':
+     neutral         0.935
+     data            0.723
+     computer        0.628
+
+Vector for 'very happy' (iter=5): affect score = 240.860
+  -> Nearest neighbors for 'very happy':
+     happy           0.931
+     joyful          0.869
+     good            0.858
 
 
 --- Demo Finished ---
-The original command-line interface is still available in the `_cli()` function if you wish to use it with your own files.
 ```
 
 ## Using the Command-Line Interface (CLI)
