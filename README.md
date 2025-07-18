@@ -23,8 +23,8 @@ The model supports two modes of operation:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
+    git clone https://github.com/farukalpay/Emphatic-Embeddings.git
+    cd Emphatic-Embeddings
     ```
 
 2.  **Install dependencies:** The project requires `numpy` and `scipy`. You can install them using pip. It is recommended to use a virtual environment.
