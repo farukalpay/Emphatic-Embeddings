@@ -168,4 +168,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Acknowledgements
 
 This code is an implementation of the concepts described in the paper **"Empathic (Affect-Augmented) Word Embeddings"**. Please cite the original authors if you use this work in your research.
-*(Note: Add a placeholder for the original paper's citation here if applicable).*
+*Alpay, F., & Kilictas, B. (2025). Alpay Algebra VI: The Universal Semantic Virus and Transfinite Embedding Alignment. Zenodo. https://doi.org/10.5281/zenodo.15939980*
