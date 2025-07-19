@@ -183,7 +183,12 @@ class EmpathicSpace:
         # Same embedding, but affect dimension sign-flipped
         return np.concatenate([self.E[w], [-self.alpha * self.val[self.w2i[w]]]])
     def nearest(self, vec: np.ndarray, n: int = 5) -> List[Tuple[str, float]]:
-        v = vec / np.linalg.norm(vec)
+        norm = np.linalg.norm(vec)
+        if norm < 1e-12:
+            # If the query vector has zero norm (e.g., phrase with no known
+            # tokens), return neutral similarities instead of NaNs.
+            return [(w, 0.0) for w in self.words][:n]
+        v = vec / norm
         return sorted(((w, float(v.dot(u))) for w, u in self.store.items()),
                       key=lambda t: -t[1])[:n]
 
