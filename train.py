@@ -101,10 +101,12 @@ class EmpathicSpace:
 
     # ─────────── supervised ────────────────────────────────────────────
     def _train_supervised(self, VAD: Dict[str, List[float]], lam: float = 1e-3):
+        """Train the affect projector using ridge regression."""
         X = np.vstack([self.E[w] for w in VAD if w in self.E])
         Y = np.vstack([VAD[w]   for w in VAD if w in self.E])
         A = X.T @ X + np.eye(self.d) * lam
-        W = (Y.T @ X) @ np.linalg.inv(A)
+        B = Y.T @ X
+        W = np.linalg.solve(A.T, B.T).T
         full = np.vstack(list(self.E.values()))
         self.val = (W[0] @ full.T)
         self._scale()

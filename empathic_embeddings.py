@@ -86,15 +86,24 @@ def build_edges(E: Dict[str, np.ndarray],
 
 # ───────────────────── main class ────────────────────────────────────────
 class EmpathicSpace:
-    def __init__(self, E: Dict[str, np.ndarray], gold: Optional[Dict[str, List[float]]] = None):
+    def __init__(self, E: Dict[str, np.ndarray], gold: Optional[Dict[str, List[float]]] = None,
+                 seed: Optional[int] = None):
+        """Create an affect-augmented embedding space.
+
+        Args:
+            E: Mapping of words to their original embedding vectors.
+            gold: Optional gold-standard VAD lexicon for supervised mode.
+            seed: Optional random seed to make unsupervised training deterministic.
+        """
         self.E = E
         self.d = len(next(iter(E.values())))
         self.words = list(E)
         self.w2i = {w: i for i, w in enumerate(self.words)}
+        self.seed = seed
         if gold:
             self._train_supervised(gold)
         else:
-            self._train_unsup()
+            self._train_unsup(seed=seed)
         # Normalize and store augmented vectors for quick similarity queries
         self.store = {w: self.vector(w) / np.linalg.norm(self.vector(w)) for w in self.words}
 
@@ -194,10 +203,16 @@ class EmpathicSpace:
 
     # ─────────── supervised ────────────────────────────────────────────
     def _train_supervised(self, VAD: Dict[str, List[float]], lam: float = 1e-3):
+        """Train the affect projection using ridge regression.
+
+        Uses ``np.linalg.solve`` instead of an explicit matrix inverse for
+        improved numerical stability.
+        """
         X = np.vstack([self.E[w] for w in VAD if w in self.E])
         Y = np.vstack([VAD[w] for w in VAD if w in self.E])
         A = X.T @ X + np.eye(self.d) * lam
-        W = (Y.T @ X) @ np.linalg.inv(A)
+        B = Y.T @ X
+        W = np.linalg.solve(A.T, B.T).T
         full = np.vstack(list(self.E.values()))
         # Use only valence dimension (index 0) for augmentation
         self.val = W[0] @ full.T
@@ -209,10 +224,11 @@ class EmpathicSpace:
         self.lambda_star = self.gamma = 1.0
 
     # ─────────── unsupervised (generalized eigen) ──────────────────────
-    def _train_unsup(self, thr: float = 0.4, k: int = 5):
+    def _train_unsup(self, thr: float = 0.4, k: int = 5, seed: Optional[int] = None):
         # Build positive and negative edges
         pos, neg = build_edges(self.E, self.w2i, thr, k)
         n = len(self.words)
+        rng = np.random.default_rng(seed)
         # Construct adjacency matrices for positive and negative edges
         rows_p, cols_p, data_p = zip(*pos) if pos else ([], [], [])
         rows_m, cols_m, data_m = zip(*neg) if neg else ([], [], [])
@@ -240,9 +256,8 @@ class EmpathicSpace:
             # Fallback: iterative generalized eigen solver for smallest two (or three) eigenpairs
             A = self.L_plus.toarray()
             B = self.L_minus.toarray()
-            np.random.seed(0)
             # First eigenpair
-            x = np.random.rand(n)
+            x = rng.random(n)
             x = x / np.linalg.norm(x)
             lam1_est = None
             for it in range(1, 31):
@@ -256,7 +271,7 @@ class EmpathicSpace:
             lam1 = lam1_est if lam1_est is not None else 0.0
             e1 = x
             # Second eigenpair (B-orthogonal to e1)
-            x2 = np.random.rand(n)
+            x2 = rng.random(n)
             e1_Bnorm = math.sqrt(e1.dot(B.dot(e1)))
             if e1_Bnorm < 1e-12:
                 e1_Bnorm = 1e-12
@@ -278,7 +293,7 @@ class EmpathicSpace:
             lam2 = lam2_est if lam2_est is not None else lam1
             # Optionally compute third eigenpair if second found
             if lam2_est is not None:
-                x3 = np.random.rand(n)
+                x3 = rng.random(n)
                 e2 = x2
                 e2_Bnorm = math.sqrt(e2.dot(B.dot(e2)))
                 if e2_Bnorm < 1e-12:
@@ -388,8 +403,7 @@ class EmpathicSpace:
             except Exception as e:
                 A2 = self.L_plus.toarray()
                 B2 = L_minus2.toarray()
-                np.random.seed(0)
-                x = np.random.rand(n)
+                x = rng.random(n)
                 x = x / (np.linalg.norm(x) + 1e-12)
                 lam1_est = None
                 for it in range(1, 31):
@@ -402,7 +416,7 @@ class EmpathicSpace:
                     lam1_est = float(x.dot(A2.dot(x)) / x.dot(B2.dot(x)))
                 lam1_2 = lam1_est if lam1_est is not None else 0.0
                 e1_2 = x
-                x2 = np.random.rand(n)
+                x2 = rng.random(n)
                 e1_Bnorm2 = math.sqrt(e1_2.dot(B2.dot(e1_2)))
                 if e1_Bnorm2 < 1e-12:
                     e1_Bnorm2 = 1e-12
@@ -423,7 +437,7 @@ class EmpathicSpace:
                     lam2_est = float(x2.dot(A2.dot(x2)) / x2.dot(B2.dot(x2)))
                 lam2_2 = lam2_est if lam2_est is not None else lam1_2
                 if lam2_est is not None:
-                    x3 = np.random.rand(n)
+                    x3 = rng.random(n)
                     e2 = x2
                     e2_Bnorm = math.sqrt(e2.dot(B2.dot(e2)))
                     if e2_Bnorm < 1e-12:
