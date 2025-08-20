@@ -27,16 +27,7 @@ The model supports two modes of operation:
     cd Emphatic-Embeddings
     ```
 
-2.  **Install dependencies:** The project requires `numpy` and `scipy`. You can install them using pip. It is recommended to use a virtual environment.
-    ```bash
-    pip install numpy scipy
-    ```
-    Or, create a `requirements.txt` file with the following content:
-    ```
-    numpy
-    scipy
-    ```
-    And install using:
+2.  **Install dependencies:** The project requires `numpy` and `scipy`. A `requirements.txt` file is included for convenience. It is recommended to use a virtual environment.
     ```bash
     pip install -r requirements.txt
     ```
