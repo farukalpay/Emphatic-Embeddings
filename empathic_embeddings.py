@@ -86,13 +86,19 @@ def build_edges(E: Dict[str, np.ndarray],
 # ───────────────────── main class ────────────────────────────────────────
 class EmpathicSpace:
     def __init__(self, E: Dict[str, np.ndarray], gold: Optional[Dict[str, List[float]]] = None,
-                 seed: Optional[int] = None):
+                 seed: Optional[int] = None, *, use_mlp: bool = False,
+                 mlp_hidden: int = 64, mlp_lr: float = 1e-2, mlp_epochs: int = 200):
         """Create an affect-augmented embedding space.
 
         Args:
             E: Mapping of words to their original embedding vectors.
             gold: Optional gold-standard VAD lexicon for supervised mode.
             seed: Optional random seed to make unsupervised training deterministic.
+            use_mlp: If ``True`` and ``gold`` is provided, train a small
+                multilayer perceptron instead of the ridge projector.
+            mlp_hidden: Number of hidden units for the MLP.
+            mlp_lr: Learning rate for MLP training.
+            mlp_epochs: Number of epochs for MLP training.
         """
         self.E = E
         self.d = len(next(iter(E.values())))
@@ -100,7 +106,11 @@ class EmpathicSpace:
         self.w2i = {w: i for i, w in enumerate(self.words)}
         self.seed = seed
         if gold:
-            self._train_supervised(gold)
+            if use_mlp:
+                self._train_supervised_mlp(gold, hidden=mlp_hidden,
+                                            lr=mlp_lr, epochs=mlp_epochs)
+            else:
+                self._train_supervised(gold)
         else:
             self._train_unsup(seed=seed)
         # Normalize and store augmented vectors for quick similarity queries.
@@ -236,6 +246,48 @@ class EmpathicSpace:
         n = len(self.words)
         self.L_plus = self.L_minus = sp.eye(n, dtype=np.float64)
         self.lambda_star = self.gamma = 1.0
+
+    def _train_supervised_mlp(self, VAD: Dict[str, List[float]], *, hidden: int = 64,
+                              lr: float = 1e-2, epochs: int = 200) -> None:
+        """Train the affect projection using a tiny MLP.
+
+        The network is a single hidden layer with ``tanh`` activation trained
+        with mean-squared error. Only the valence dimension of the output is
+        used to augment the embeddings.
+        """
+        X = np.vstack([self.E[w] for w in VAD if w in self.E])
+        Y = np.vstack([VAD[w] for w in VAD if w in self.E])
+        n, d = X.shape
+        rng = np.random.default_rng(self.seed)
+        W1 = rng.normal(scale=1.0 / math.sqrt(d), size=(d, hidden))
+        b1 = np.zeros(hidden)
+        W2 = rng.normal(scale=1.0 / math.sqrt(hidden), size=(hidden, 3))
+        b2 = np.zeros(3)
+        for _ in range(epochs):
+            Z1 = X @ W1 + b1
+            A1 = np.tanh(Z1)
+            Z2 = A1 @ W2 + b2
+            err = Z2 - Y
+            grad_Z2 = (2.0 / n) * err
+            grad_W2 = A1.T @ grad_Z2
+            grad_b2 = grad_Z2.sum(axis=0)
+            grad_A1 = grad_Z2 @ W2.T
+            grad_Z1 = grad_A1 * (1 - np.tanh(Z1) ** 2)
+            grad_W1 = X.T @ grad_Z1
+            grad_b1 = grad_Z1.sum(axis=0)
+            W1 -= lr * grad_W1
+            b1 -= lr * grad_b1
+            W2 -= lr * grad_W2
+            b2 -= lr * grad_b2
+        full = np.vstack(list(self.E.values()))
+        A1_full = np.tanh(full @ W1 + b1)
+        preds_full = A1_full @ W2 + b2
+        self.val = preds_full[:, 0]
+        self._scale()
+        nwords = len(self.words)
+        self.L_plus = self.L_minus = sp.eye(nwords, dtype=np.float64)
+        self.lambda_star = self.gamma = 1.0
+        self.mlp_params = dict(W1=W1, b1=b1, W2=W2, b2=b2)
 
     # ─────────── unsupervised (generalized eigen) ──────────────────────
     def _train_unsup(self, thr: float = 0.4, k: int = 5, seed: Optional[int] = None):
@@ -682,6 +734,23 @@ def main():
 
     except Exception as e:
         print(f"❌  Supervised mode failed: {e}")
+
+
+    # --- 2b. Supervised Mode with MLP ---
+    print("\n--- Running SUPERVISED Mode Demo with MLP ---")
+    try:
+        mlp_space = EmpathicSpace(E, gold=dummy_vad_data, use_mlp=True, mlp_epochs=100)
+        print("✅  Supervised MLP model trained successfully.")
+        probe_word = "good"
+        if probe_word in mlp_space.E:
+            vec = mlp_space.vector(probe_word)
+            print(f"Nearest neighbours of '{probe_word}' (MLP):")
+            for w, s in mlp_space.nearest(vec, n=5):
+                print(f"  {w:<15}  {s:5.3f}")
+        else:
+            print(f"Probe word '{probe_word}' not in dummy vocabulary.")
+    except Exception as e:
+        print(f"❌  Supervised MLP mode failed: {e}")
 
 
     # --- 3. Unsupervised Mode Demo ---
