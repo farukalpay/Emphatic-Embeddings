@@ -21,111 +21,45 @@ The model supports two modes of operation:
 
 ## Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/farukalpay/Emphatic-Embeddings.git
-    cd Emphatic-Embeddings
-    ```
+The project can now be installed like any other Python package.
 
-2.  **Install dependencies:** The project requires `numpy` and `scipy`. A `requirements.txt` file is included for convenience. It is recommended to use a virtual environment.
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-## Quick Start: Running the Demo
-
-The provided Python script (`empathic_embeddings.py` or similar) is ready to run out of the box. It contains a self-contained `main()` function that uses dummy data to demonstrate both the supervised and unsupervised modes.
-
-Simply run the script:
 ```bash
-python empathic_embeddings.py
+pip install emphatic-embeddings
 ```
 
-### Expected Output
+This provides both the library and an `empathic-embeddings` command‑line tool.
+To install from a local clone instead, run:
 
-Running the script will produce the following output, demonstrating the model's capabilities on the sample data.
-
+```bash
+pip install .
 ```
-======================================================================
- Empathic Word Embeddings Demo
-======================================================================
-This script will now run a self-contained demonstration.
-NOTE: This requires 'numpy' and 'scipy' to be installed.
-You can install them by running: pip install numpy scipy
 
+## Quick Start
 
---- Running SUPERVISED Mode Demo (using dummy VAD data) ---
-✅  Supervised model trained successfully.
+### Library
 
-Nearest neighbours of 'good' in affect-augmented space:
-  good             1.000
-  excellent        0.999
-  joyful           0.997
-  happy            0.995
-  neutral          0.963
+```python
+from empathic_embeddings import EmpathicSpace, read_vec
+E = dict(read_vec("embeddings.txt"))
+space = EmpathicSpace(E)
+print(space.nearest(space.vector("good")))
+```
 
-Opposite-affect neighbours of 'good':
-  miserable        -0.402
-  unhappy          -0.553
-  terrible         -0.582
-  sad              -0.660
-  bad              -0.674
+### Command line
 
+```bash
+empathic-embeddings path/to/your/glove.6B.100d.txt --probe king
+```
 
---- Running UNSUPERVISED Mode Demo (no VAD data) ---
-✅  Unsupervised model trained successfully.
+To see the original demonstration used during development:
 
-Words with most negative discovered affect:
-  unhappy         -1.917
-  bad             -0.779
-  miserable       -0.760
-  sad             -0.760
-  terrible        -0.704
-
-Words with most positive discovered affect:
-  happy            1.618
-  joyful           1.120
-  excellent        1.046
-  good             1.043
-  data             0.080
-
-Nearest neighbours of 'good' in affect-augmented space:
-  good             1.000
-  excellent        0.996
-  joyful           0.982
-  happy            0.972
-  data             0.466
-
-Opposite-affect neighbours of 'good':
-  unhappy          0.600
-  bad              0.442
-  neutral          0.416
-  data             0.355
-  terrible         0.344
-
-Certificate for 'good':  R=7.791e+00,  θ=90.0°
-
---- Demonstrating new `phrase_vector` method ---
-
-Vector for 'bad happy': affect score = 0.184
-  -> Nearest neighbors for 'bad happy':
-     neutral         0.935
-     data            0.723
-     computer        0.628
-
-Vector for 'very happy' (iter=5): affect score = 240.860
-  -> Nearest neighbors for 'very happy':
-     happy           0.931
-     joyful          0.869
-     good            0.858
-
-
---- Demo Finished ---
+```bash
+python -c "import empathic_embeddings as ee; ee.main()"
 ```
 
 ## Using the Command-Line Interface (CLI)
 
-For use with your own data, the script provides a command-line interface. You will need:
+For use with your own data, the package installs a command-line tool named `empathic-embeddings`. You will need:
 1.  A file with pre-trained word embeddings in `word2vec` text format.
 2.  (Optional) A VAD lexicon file for supervised mode. This should be a 4-column text file: `word V A D`.
 
@@ -142,7 +76,7 @@ For use with your own data, the script provides a command-line interface. You wi
 This command will train a model using your embeddings and run demo queries for the word "king".
 
 ```bash
-python empathic_embeddings.py path/to/your/glove.6B.100d.txt --probe king
+empathic-embeddings path/to/your/glove.6B.100d.txt --probe king
 ```
 
 ### Example: Supervised Mode
@@ -150,7 +84,7 @@ python empathic_embeddings.py path/to/your/glove.6B.100d.txt --probe king
 This command will use a VAD lexicon to train the model in supervised mode.
 
 ```bash
-python empathic_embeddings.py path/to/your/glove.6B.100d.txt --vad path/to/your/vad-lexicon.txt --probe happy
+empathic-embeddings path/to/your/glove.6B.100d.txt --vad path/to/your/vad-lexicon.txt --probe happy
 ```
 
 ## How It Works: A Brief Overview
