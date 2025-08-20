@@ -209,7 +209,9 @@ class EmpathicSpace:
         v = vec / norm
         sims = self._store_matrix @ v
         n = min(n, len(self.words))
-        idxs = np.argpartition(-sims, range(n))[:n]
+        if n <= 0:
+            return []
+        idxs = np.argpartition(-sims, n - 1)[:n]
         idxs = idxs[np.argsort(-sims[idxs])]
         return [(self.words[i], float(sims[i])) for i in idxs]
 
@@ -547,6 +549,7 @@ class EmpathicSpace:
         n = len(obj.words)
         obj.L_plus = obj.L_minus = sp.eye(n, dtype=np.float64)
         obj.store = {w: obj.vector(w) / np.linalg.norm(obj.vector(w)) for w in obj.words}
+        obj._store_matrix = np.vstack([obj.store[w] for w in obj.words])
         # Re-initialize composition parameters after loading
         mean_vec_norm = np.mean([np.linalg.norm(v) for v in obj.E.values()])
         mean_vec_norm = mean_vec_norm if mean_vec_norm > 0 else 1.0
