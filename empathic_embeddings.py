@@ -104,8 +104,11 @@ class EmpathicSpace:
             self._train_supervised(gold)
         else:
             self._train_unsup(seed=seed)
-        # Normalize and store augmented vectors for quick similarity queries
-        self.store = {w: self.vector(w) / np.linalg.norm(self.vector(w)) for w in self.words}
+        # Normalize and store augmented vectors for quick similarity queries.
+        # A second matrix view is kept to support fast vectorised search.
+        self.store = {w: self.vector(w) / np.linalg.norm(self.vector(w))
+                      for w in self.words}
+        self._store_matrix = np.vstack([self.store[w] for w in self.words])
 
         # Initialize parameters for the phrase composition tensor product.
         # This implements the logic required to repair the "monotonicity mismatch".
@@ -192,14 +195,24 @@ class EmpathicSpace:
         # Same embedding, but affect dimension sign-flipped
         return np.concatenate([self.E[w], [-self.alpha * self.val[self.w2i[w]]]])
     def nearest(self, vec: np.ndarray, n: int = 5) -> List[Tuple[str, float]]:
+        """Return the ``n`` nearest neighbours of ``vec``.
+
+        The previous implementation sorted the similarity against *all*
+        words which becomes expensive for large vocabularies.  This version
+        performs the search in a fully vectorised manner and uses
+        ``numpy.argpartition`` to retrieve only the top ``n`` candidates.
+        """
         norm = np.linalg.norm(vec)
         if norm < 1e-12:
             # If the query vector has zero norm (e.g., phrase with no known
             # tokens), return neutral similarities instead of NaNs.
             return [(w, 0.0) for w in self.words][:n]
         v = vec / norm
-        return sorted(((w, float(v.dot(u))) for w, u in self.store.items()),
-                      key=lambda t: -t[1])[:n]
+        sims = self._store_matrix @ v
+        n = min(n, len(self.words))
+        idxs = np.argpartition(-sims, range(n))[:n]
+        idxs = idxs[np.argsort(-sims[idxs])]
+        return [(self.words[i], float(sims[i])) for i in idxs]
 
     # ─────────── supervised ────────────────────────────────────────────
     def _train_supervised(self, VAD: Dict[str, List[float]], lam: float = 1e-3):
