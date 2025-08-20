@@ -86,8 +86,11 @@ class EmpathicSpace:
             self._train_supervised(gold)
         else:
             self._train_unsup()
+        # Precompute normalised vectors and a stacked matrix for efficient
+        # nearest-neighbour queries.
         self.store = {w: self.vector(w)/np.linalg.norm(self.vector(w))
                       for w in self.words}
+        self._store_matrix = np.vstack([self.store[w] for w in self.words])
 
     # ─────────── vectors ────────────────────────────────────────────────
     def vector(self, w: str) -> np.ndarray:
@@ -95,9 +98,16 @@ class EmpathicSpace:
     def opposite(self, w: str) -> np.ndarray:
         return np.concatenate([self.E[w], [-self.alpha * self.val[self.w2i[w]]]])
     def nearest(self, vec: np.ndarray, n: int = 5):
-        v = vec/np.linalg.norm(vec)
-        return sorted(((w, float(v.dot(u))) for w, u in self.store.items()),
-                      key=lambda t: -t[1])[:n]
+        """Return the ``n`` nearest neighbours of ``vec`` using a vectorised search."""
+        norm = np.linalg.norm(vec)
+        if norm < 1e-12:
+            return [(w, 0.0) for w in self.words][:n]
+        v = vec / norm
+        sims = self._store_matrix @ v
+        n = min(n, len(self.words))
+        idxs = np.argpartition(-sims, range(n))[:n]
+        idxs = idxs[np.argsort(-sims[idxs])]
+        return [(self.words[i], float(sims[i])) for i in idxs]
 
     # ─────────── supervised ────────────────────────────────────────────
     def _train_supervised(self, VAD: Dict[str, List[float]], lam: float = 1e-3):
