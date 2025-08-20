@@ -90,7 +90,7 @@ empathic-embeddings path/to/your/glove.6B.100d.txt --vad path/to/your/vad-lexico
 ## How It Works: A Brief Overview
 
 ### Supervised Mode
-When a VAD lexicon is provided, the model learns a linear projection (using Ridge regression) from the high-dimensional word embedding space to the 3D VAD (Valence, Arousal, Dominance) space. The valence dimension from this projection is then appended to the original embeddings to create the empathic space.
+When a VAD lexicon is provided, the model learns a projection from the high-dimensional word embedding space to the 3D VAD (Valence, Arousal, Dominance) space. By default this projection is linear (ridge regression), but a lightweight multilayer perceptron can also be trained for non‑linear mappings by passing ``use_mlp=True`` when constructing :class:`EmpathicSpace`. In either case, the resulting valence scores are appended to the original embeddings to create the empathic space.
 
 ### Unsupervised Mode
 Without a lexicon, the model builds a **signed graph** where nodes are words.
