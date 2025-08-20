@@ -8,10 +8,9 @@ Unsupervised    : signed graph with      L⁺ z = λ L⁻ z
                   + spectral‑cap cert.   (omit --vad)
 
 MODIFICATION NOTE:
-This file has been modified to include a self-contained `main()` function.
-It now runs a demonstration with built-in dummy data, making it
-"ready to run" without any external files. Just execute the script.
-The original command-line interface is preserved in the `_cli()` function.
+This file exposes a small library for affect‑augmented word embeddings.
+It includes a self-contained `main()` demo, while the `_cli()` function
+provides the original command-line interface.
 """
 import gzip, json, math, random, sys
 from collections import defaultdict
@@ -749,8 +748,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # This will run the self-contained demo function by default.
-    main()
-    # To use the original command-line tool, you could change this to:
-    # _cli()
+    # Invoke the command-line interface when executed as a script.
+    _cli()
 # ────────────────────────────── end of file ───────────────────────────────

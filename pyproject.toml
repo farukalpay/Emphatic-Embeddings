@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emphatic-embeddings"
+version = "0.1.0"
+description = "Empathic (Affect-Augmented) Word Embeddings"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [{name = "Faruk Alpay"}]
+dependencies = [
+    "numpy",
+    "scipy",
+]
+
+[project.urls]
+Homepage = "https://github.com/farukalpay/Emphatic-Embeddings"
+
+[project.scripts]
+empathic-embeddings = "empathic_embeddings:_cli"
+
+[tool.setuptools]
+py-modules = ["empathic_embeddings"]
