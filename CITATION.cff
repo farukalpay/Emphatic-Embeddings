@@ -1,0 +1,7 @@
+cff-version: 1.2.0
+title: "Empathic (Affect-Augmented) Word Embeddings"
+authors:
+  - family-names: Alpay
+    given-names: Faruk
+license: MIT
+version: 0.2.0
